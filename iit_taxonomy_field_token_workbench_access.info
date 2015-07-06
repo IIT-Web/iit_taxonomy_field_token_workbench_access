@@ -1,3 +1,10 @@
-name = Iit Taxonomy Field Token Workbench Access
-description = A description of what your module does.
+name = IIT Taxonomy Field Token for Workbench Access
+description = Provides Custom IIT token replacements
+
 core = 7.x
+package = Illinois Institute of Technology
+
+dependencies[] = pathauto
+dependencies[] = workbench_access
+
+version = 7.x-0.1
