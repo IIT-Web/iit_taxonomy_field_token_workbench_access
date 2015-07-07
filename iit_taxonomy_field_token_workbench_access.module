@@ -1,5 +1,121 @@
 <?php
 /**
 * @file
-* A description of what your module does.
+* Provides IIT custom tokens for fields added to a workbench access taxonomy
 */
+
+/* ***************************************** */
+/* Hook Implementations                      */
+/* ***************************************** */
+
+/**
+ * Implements hook_token_info(). This hook will register the tokens.
+ */
+function iit_taxonomy_field_token_workbench_access_token_info() {
+  $info['tokens']['node']['workbench-access-field-text'] = array(
+    'name' => t('text field on term'),
+    'description' => t('text field on term'),
+    'dynamic' => TRUE,
+  );
+
+  return $info;
+}
+
+
+/**
+ * Implements hook_tokens(). This hook will operate the token and replace it with it's value.
+ */
+function iit_taxonomy_field_token_workbench_access_tokens($type, $tokens, array $data = array(), array $options = array()) {
+  $replacements = array();
+  $sanitize = !empty($options['sanitize']);
+
+  // Node tokens.
+  if ($type == 'node' && !empty($data['node'])) {
+    $node = $data['node'];
+
+    // [node:value] dynamic tokens.
+    if ($value_tokens = token_find_with_prefix($tokens, 'workbench-access-field-text')) {
+      foreach ($value_tokens as $name => $original) {
+        if ($sections = _iit_workbench_access_get_node_section_names($node, $name)) {
+          if ($sanitize) {
+            // Run sections through check_plain() if they should be sanitized.
+            $sections = array_map('check_plain', $sections);
+          }
+          $join = isset($options['join']) ? $options['join'] : ', ';
+          $replacements[$original] = implode($join, $sections);
+        } elseif (variable_get('workbench_access_node_type_' . $node->type, 1)) {
+          // Output the default unassigned token if the content type is access controlled.
+          $replacements[$original] = t('unassigned');
+        } else {
+          // Output no WBA on node
+          $replacements[$original] = t('no-workbench-access');
+        }
+      }
+    }
+
+  }
+
+  return $replacements;
+}
+
+
+/* ***************************************** */
+/* Module Local Functions                    */
+/* ***************************************** */
+
+/**
+ * Fetch an array of a node's access sections for use with tokens.
+ *
+ * @return array
+ *   An array of access section names keyed by access ID.
+ */
+function _iit_workbench_access_get_node_section_names($node, $field) {
+  $sections = &drupal_static(__FUNCTION__, array());
+
+  if (!isset($sections[$node->nid])) {
+    $sections[$node->nid] = array();
+
+    if (!empty($node->workbench_access)) {
+      $access_type = variable_get('workbench_access');
+      foreach ($node->workbench_access as $access_id) {
+        $term = taxonomy_term_load($access_id);
+        $termFieldObj = field_get_items('taxonomy_term', $term, $field);
+        if ($termFieldObj) {
+          $urlpath = $termFieldObj[0]['safe_value'];
+          if (!ctype_space($urlpath)) {
+            $sections[$node->nid][$access_id] = $urlpath;
+          } else {
+            $info = workbench_access_load($access_type, $access_id);
+            $sections[$node->nid][$access_id] = _iit_clean_string($info['name']);
+          }
+        } else {
+          $info = workbench_access_load($access_type, $access_id);
+          $sections[$node->nid][$access_id] = _iit_clean_string($info['name']);
+        }
+      }
+    }
+  }
+
+  return $sections[$node->nid];
+}
+
+
+/**
+ * Removes all characters from a string that are not standard
+ * letters, numbers, or dashes. Also converts spaces or
+ * underscores to dashes and all characters to lowercase.
+ * Useful for making CSS classes from strings.
+ *
+ * @param string $text
+ *   Text to search against.
+ *
+ * @return string
+ *   The string with only letters, numbers, and dashes..
+ */
+function _iit_clean_string($text) {
+  $string = str_replace(' ', '-', strtolower($text));
+  $string = preg_replace('/[^A-Za-z0-9\-]/', '', $string);
+  $string = preg_replace('/-+/', '-', $string); // Replaces multiple hyphens with single one.
+
+  return $string;
+}
