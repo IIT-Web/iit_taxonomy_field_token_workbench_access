@@ -37,18 +37,18 @@ function iit_taxonomy_field_token_workbench_access_tokens($type, $tokens, array 
     if ($value_tokens = token_find_with_prefix($tokens, 'workbench-access-field-text')) {
       foreach ($value_tokens as $name => $original) {
         if ($sections = _iit_workbench_access_get_node_section_names($node, $name)) {
-          if ($sanitize) {
+          /*if ($sanitize) {
             // Run sections through check_plain() if they should be sanitized.
             $sections = array_map('check_plain', $sections);
           }
-          $join = isset($options['join']) ? $options['join'] : ', ';
-          $replacements[$original] = implode($join, $sections);
+          $join = isset($options['join']) ? $options['join'] : ', ';*/
+          $replacements[$original] = implode("_", $sections);
         } elseif (variable_get('workbench_access_node_type_' . $node->type, 1)) {
           // Output the default unassigned token if the content type is access controlled.
           $replacements[$original] = t('unassigned');
         } else {
-          // Output no WBA on node
-          $replacements[$original] = t('no-workbench-access');
+          // Output if Workbench Access Control is not enabled for content type
+          $replacements[$original] = t('no-workbench-access-on-node');
         }
       }
     }
@@ -81,16 +81,16 @@ function _iit_workbench_access_get_node_section_names($node, $field) {
         $term = taxonomy_term_load($access_id);
         $termFieldObj = field_get_items('taxonomy_term', $term, $field);
         if ($termFieldObj) {
-          $urlpath = $termFieldObj[0]['safe_value'];
-          if (!ctype_space($urlpath)) {
-            $sections[$node->nid][$access_id] = $urlpath;
+          $fieldValue = $termFieldObj[0]['safe_value'];
+          if (!ctype_space($fieldValue)) {
+            $sections[$node->nid][$access_id] = _iit_clean_url_string($fieldValue, true);
           } else {
             $info = workbench_access_load($access_type, $access_id);
-            $sections[$node->nid][$access_id] = _iit_clean_string($info['name']);
+            $sections[$node->nid][$access_id] = _iit_clean_url_string($info['name'], false);
           }
         } else {
           $info = workbench_access_load($access_type, $access_id);
-          $sections[$node->nid][$access_id] = _iit_clean_string($info['name']);
+          $sections[$node->nid][$access_id] = _iit_clean_url_string($info['name'], false);
         }
       }
     }
@@ -102,19 +102,30 @@ function _iit_workbench_access_get_node_section_names($node, $field) {
 
 /**
  * Removes all characters from a string that are not standard
- * letters, numbers, or dashes. Also converts spaces or
+ * letters, numbers, underscores or dashes. Also converts spaces or
  * underscores to dashes and all characters to lowercase.
- * Useful for making CSS classes from strings.
+ * Does not allow multiple dashes in a row. Optional parameter to
+ * allow slashes in the url.
  *
  * @param string $text
  *   Text to search against.
  *
+ * @param boolean $slashes
+ *   Allow slashes in the replacement. Defaults to true.
+ *
  * @return string
- *   The string with only letters, numbers, and dashes..
+ *   The string with only letters, numbers, dashes, and optional slashes.
  */
-function _iit_clean_string($text) {
-  $string = str_replace(' ', '-', strtolower($text));
-  $string = preg_replace('/[^A-Za-z0-9\-]/', '', $string);
+function _iit_clean_url_string($text, $slashes = true) {
+  $string = trim($text);
+  $string = trim($string, "/");
+  $string = str_replace(' ', '-', strtolower($string));
+  if ($slashes) {
+    $string = preg_replace('/[^A-Za-z0-9_\-\/]/', '', $string);
+  } else {
+    $string = preg_replace('/\//', '-', $string);
+    $string = preg_replace('/[^A-Za-z0-9_\-]/', '', $string);
+  }
   $string = preg_replace('/-+/', '-', $string); // Replaces multiple hyphens with single one.
 
   return $string;
