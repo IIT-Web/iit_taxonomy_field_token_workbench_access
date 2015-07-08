@@ -1,5 +1,5 @@
 name = IIT Taxonomy Field Token for Workbench Access
-description = Provides token replacement for text field on workbench access taxonomy
+description = Provides a dynamic token replacement for a text field added on a workbench access taxonomy term
 
 core = 7.x
 package = Illinois Institute of Technology
@@ -8,4 +8,4 @@ dependencies[] = token
 dependencies[] = pathauto
 dependencies[] = workbench_access
 
-version = 7.x-0.1
+version = 7.x-1.0
